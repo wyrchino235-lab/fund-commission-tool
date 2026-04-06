@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基金尾佣处理系统 - 匹配状态详情导出</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-6xl">
+        <h1 class="text-3xl font-bold text-gray-800 mb-8 text-center">基金尾佣处理系统 - 匹配状态详情导出</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">文件上传</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">公司基金名称及代码文件</label>
+                    <input type="file" id="product-codes" accept=".xlsx, .xls" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">尾佣数据文件</label>
+                    <input type="file" id="commission-data" accept=".xlsx, .xls" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">列名映射设置</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <h3 class="text-md font-medium mb-2">产品代码文件列名</h3>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">产品名称列</label>
+                            <input type="text" id="product-name-col" placeholder="例如：产品名称" class="w-full border rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">产品代码列</label>
+                            <input type="text" id="product-code-col" placeholder="例如：产品代码" class="w-full border rounded px-3 py-2 text-sm">
+                        </div>
+                    </div>
+                </div>
+                <div>
+                    <h3 class="text-md font-medium mb-2">尾佣数据文件列名</h3>
+                    <div class="space-y-2">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">基金名称列</label>
+                            <input type="text" id="fund-name-col" placeholder="例如：基金名称" class="w-full border rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">基金代码列</label>
+                            <input type="text" id="fund-code-col" placeholder="例如：基金代码" class="w-full border rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">销售商列</label>
+                            <input type="text" id="sales-agent-col" placeholder="例如：销售商" class="w-full border rounded px-3 py-2 text-sm">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">尾佣金额列</label>
+                            <input type="text" id="commission-amount-col" placeholder="例如：尾佣金额" class="w-full border rounded px-3 py-2 text-sm">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">匹配规则设置</h2>
+            <div class="mb-4">
+                <label class="block text-sm font-medium mb-1">添加自定义匹配规则</label>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <input type="text" id="rule-keyword" placeholder="尾佣基金名称关键词" class="w-full border rounded px-3 py-2 text-sm">
+                    <input type="text" id="rule-product-name" placeholder="公司产品名称" class="w-full border rounded px-3 py-2 text-sm">
+                    <input type="text" id="rule-product-code" placeholder="产品代码" class="w-full border rounded px-3 py-2 text-sm">
+                </div>
+                <button id="add-rule" class="mt-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">添加规则</button>
+            </div>
+            <div>
+                <h3 class="text-md font-medium mb-2">当前匹配规则</h3>
+                <div id="rules-list" class="border rounded p-4 bg-gray-50"></div>
+            </div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">数据预览</h2>
+            <button id="preview-data" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 transition-colors mb-4">预览数据</button>
+            <div id="data-preview" class="overflow-x-auto"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">匹配状态详情</h2>
+            <div id="match-status-detail" class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200">
+                    <thead class="bg-gray-100">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">原始基金名称</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">原始基金代码</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">匹配的产品名称</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">产品代码</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">匹配方式</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">尾佣金额</th>
+                        </tr>
+                    </thead>
+                    <tbody id="match-status-body" class="bg-white divide-y divide-gray-200">
+                        <!-- 匹配状态详情将在这里显示 -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <div class="text-center">
+            <button id="process-data" class="bg-indigo-600 text-white px-6 py-3 rounded hover:bg-indigo-700 transition-colors text-lg font-medium">开始处理</button>
+        </div>
+        
+        <div id="result" class="mt-8 hidden">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">处理结果</h2>
+            <div id="result-content"></div>
+        </div>
+        
+        <div class="bg-white rounded-lg shadow-md p-6 mb-8">
+            <h2 class="text-xl font-semibold text-gray-700 mb-4">历史记录</h2>
+            <button id="load-history" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors mb-4">加载历史记录</button>
+            <div id="history-list" class="overflow-x-auto"></div>
+        </div>
+        
+        <div id="loading" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 hidden">
+            <div class="bg-white p-4 rounded-lg">
+                <p class="text-gray-700">处理中，请稍候...</p>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        let productData = [];
+        let commissionData = [];
+        let productMap = {};
+        let productShareMap = {};
+        let productCodeMap = {};
+        let customMatchRules = [];
+        let matchingResults = [];
+        
+        // 提取基础名称
+        function extractBaseName(fundName) {
+            let baseName = fundName;
+            
+            // 移除常见的份额后缀
+            baseName = baseName.replace(/[ACBDEFHIKLMNOPQRSTUVWXYZ]$/, '').trim();
+            baseName = baseName.replace(/\(.*?\)/, '').trim();
+            
+            // 移除公司前缀
+            const prefixes = ['鹏扬', '华夏', '易方达', '嘉实', '南方', '广发', '工银瑞信', '汇添富', '富国', '招商'];
+            prefixes.forEach(prefix => {
+                if (baseName.startsWith(prefix)) {
+                    baseName = baseName.substring(prefix.length).trim();
+                }
+            });
+            
+            return baseName;
+        }
+        
+        // 提取份额后缀
+        function extractShareClass(fundName) {
+            const match = fundName.match(/[ACBDEFHIKLMNOPQRSTUVWXYZ]$/);
+            return match ? match[0] : '';
+        }
+        
+        // 检查两个字符串是否有连续两个相同的字符
+        function hasConsecutiveTwoCharsMatch(str1, str2) {
+            // 生成所有连续两个字符的组合
+            function getConsecutiveTwoChars(str) {
+                const pairs = [];
+                for (let i = 0; i < str.length - 1; i++) {
+                    pairs.push(str.substring(i, i + 2));
+                }
+                return pairs;
+            }
+            
+            const pairs1 = getConsecutiveTwoChars(str1);
+            const pairs2 = getConsecutiveTwoChars(str2);
+            
+            // 检查是否有共同的连续两个字符
+            for (let pair1 of pairs1) {
+                if (pairs2.includes(pair1)) {
+                    return true;
+                }
+            }
+            
+            return false;
+        }
+        
+        // 查找匹配产品
+        function findMatchingProduct(fundName, fundCode = '') {
+            const baseName = extractBaseName(fundName);
+            const shareClass = extractShareClass(fundName);
+            
+            // 1. 检查自定义规则
+            for (let rule of customMatchRules) {
+                if (fundName.includes(rule.keyword) || rule.keyword.includes(fundName)) {
+                    return {
+                        name: rule.productName,
+                        code: rule.productCode,
+                        status: '自定义规则匹配'
+                    };
+                }
+            }
+            
+            // 2. 精确匹配（包含份额）
+            if (productShareMap[fundName]) {
+                return { name: fundName, code: productShareMap[fundName], status: '精确匹配' };
+            }
+            
+            // 3. 基础名称匹配 + 份额匹配
+            if (productMap[baseName]) {
+                // 优先匹配相同份额
+                if (shareClass) {
+                    const shareMatch = productMap[baseName].find(item => item.name.endsWith(shareClass));
+                    if (shareMatch) {
+                        return { name: shareMatch.name, code: shareMatch.code, status: '基础名称+份额匹配' };
+                    }
+                }
+                // 否则返回第一个匹配
+                return { name: productMap[baseName][0].name, code: productMap[baseName][0].code, status: '基础名称匹配' };
+            }
+            
+            // 4. 包含匹配
+            for (let productName in productShareMap) {
+                const productBaseName = extractBaseName(productName);
+                if (baseName.includes(productBaseName) || productBaseName.includes(baseName)) {
+                    return { name: productName, code: productShareMap[productName], status: '包含匹配' };
+                }
+            }
+            
+            // 5. 双字匹配：当基金名称中有相同的两个连着的字时就可以匹配
+            for (let productName in productShareMap) {
+                const productBaseName = extractBaseName(productName);
+                if (hasConsecutiveTwoCharsMatch(baseName, productBaseName)) {
+                    return { name: productName, code: productShareMap[productName], status: '双字匹配' };
+                }
+            }
+            
+            // 5. 基金代码匹配
+            if (fundCode && productCodeMap[fundCode]) {
+                return { name: productCodeMap[fundCode].name, code: productCodeMap[fundCode].code, status: '基金代码匹配' };
+            }
+            
+            // 6. 未匹配
+            return { name: fundName, code: '', status: '未匹配' };
+        }
+        
+        // 构建产品映射
+        function buildProductMap() {
+            productMap = {};
+            productShareMap = {};
+            productCodeMap = {};
+            
+            const productNameCol = document.getElementById('product-name-col').value.trim() || Object.keys(productData[0])[0];
+            const productCodeCol = document.getElementById('product-code-col').value.trim() || Object.keys(productData[0])[1];
+            
+            productData.forEach(row => {
+                const productName = String(row[productNameCol]).trim();
+                const productCode = String(row[productCodeCol]).trim();
+                
+                if (productName && productCode) {
+                    productShareMap[productName] = productCode;
+                    productCodeMap[productCode] = { name: productName, code: productCode };
+                    
+                    const baseName = extractBaseName(productName);
+                    if (!productMap[baseName]) {
+                        productMap[baseName] = [];
+                    }
+                    productMap[baseName].push({ name: productName, code: productCode });
+                }
+            });
+        }
+        
+        // 显示数据预览
+        function showDataPreview() {
+            if (!productData.length || !commissionData.length) {
+                alert('请先上传所有文件');
+                return;
+            }
+            
+            buildProductMap();
+            
+            const productPreview = document.getElementById('data-preview');
+            let html = '<h3 class="text-lg font-medium mb-2">产品代码数据预览</h3>';
+            html += '<div class="overflow-x-auto mb-6">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-100"><tr>';
+            
+            const productHeaders = Object.keys(productData[0]);
+            productHeaders.forEach(header => {
+                html += `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${header}</th>`;
+            });
+            
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            productData.slice(0, 10).forEach(row => {
+                html += '<tr>';
+                productHeaders.forEach(header => {
+                    html += `<td class="px-4 py-2 text-sm">${row[header] || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            
+            html += '<h3 class="text-lg font-medium mb-2">尾佣数据预览</h3>';
+            html += '<div class="overflow-x-auto">';
+            html += '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-100"><tr>';
+            
+            const commissionHeaders = Object.keys(commissionData[0]);
+            commissionHeaders.forEach(header => {
+                html += `<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">${header}</th>`;
+            });
+            
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            commissionData.slice(0, 10).forEach(row => {
+                html += '<tr>';
+                commissionHeaders.forEach(header => {
+                    html += `<td class="px-4 py-2 text-sm">${row[header] || ''}</td>`;
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table></div>';
+            
+            productPreview.innerHTML = html;
+            
+            // 显示匹配状态详情
+            showMatchStatusDetail();
+        }
+        
+        // 显示匹配状态详情
+        function showMatchStatusDetail() {
+            const fundNameCol = document.getElementById('fund-name-col').value.trim() || Object.keys(commissionData[0])[0];
+            const fundCodeCol = document.getElementById('fund-code-col').value.trim() || '';
+            const salesAgentCol = document.getElementById('sales-agent-col').value.trim() || Object.keys(commissionData[0])[1];
+            const commissionAmountCol = document.getElementById('commission-amount-col').value.trim() || Object.keys(commissionData[0])[2];
+            
+            const container = document.getElementById('match-status-body');
+            let html = '';
+            
+            matchingResults = [];
+            
+            commissionData.forEach(row => {
+                const fundName = row[fundNameCol];
+                const fundCode = fundCodeCol ? row[fundCodeCol] : '';
+                const salesAgent = row[salesAgentCol];
+                const commissionAmount = parseFloat(row[commissionAmountCol]) || 0;
+                
+                if (!fundName) return;
+                
+                const baseName = extractBaseName(String(fundName).trim());
+                const matchResult = findMatchingProduct(String(fundName).trim(), String(fundCode).trim());
+                
+                let statusClass = '';
+                switch (matchResult.status) {
+                    case '精确匹配': statusClass = 'bg-green-100 text-green-800'; break;
+                    case '基础名称+份额匹配': statusClass = 'bg-blue-100 text-blue-800'; break;
+                    case '基础名称匹配': statusClass = 'bg-purple-100 text-purple-800'; break;
+                    case '包含匹配': statusClass = 'bg-yellow-100 text-yellow-800'; break;
+                    case '双字匹配': statusClass = 'bg-orange-100 text-orange-800'; break;
+                    case '自定义规则匹配': statusClass = 'bg-indigo-100 text-indigo-800'; break;
+                    case '基金代码匹配': statusClass = 'bg-teal-100 text-teal-800'; break;
+                    default: statusClass = 'bg-red-100 text-red-800';
+                }
+                
+                html += `<tr class="border-b">
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${fundName}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${fundCode || ''}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${matchResult.name}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${matchResult.code}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm"><span class="${statusClass} px-2 py-1 rounded">${matchResult.status}</span></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">${commissionAmount}</td>
+                </tr>`;
+                
+                matchingResults.push({
+                    '原始基金名称': fundName,
+                    '原始基金代码': fundCode || '',
+                    '提取的基础名称': baseName,
+                    '匹配的产品名称': matchResult.name,
+                    '产品代码': matchResult.code,
+                    '匹配方式': matchResult.status,
+                    '销售商': salesAgent || '',
+                    '尾佣金额': commissionAmount
+                });
+            });
+            
+            container.innerHTML = html;
+        }
+        
+        // 处理数据
+        async function processData() {
+            if (!productData.length || !commissionData.length) {
+                alert('请先上传所有文件');
+                return;
+            }
+            
+            showLoading();
+            
+            try {
+                buildProductMap();
+                
+                const fundNameCol = document.getElementById('fund-name-col').value.trim() || Object.keys(commissionData[0])[0];
+                const fundCodeCol = document.getElementById('fund-code-col').value.trim() || '';
+                const salesAgentCol = document.getElementById('sales-agent-col').value.trim() || Object.keys(commissionData[0])[1];
+                const commissionAmountCol = document.getElementById('commission-amount-col').value.trim() || Object.keys(commissionData[0])[2];
+                
+                // 处理尾佣数据
+                const processedData = [];
+                let totalAmount = 0;
+                let matchedCount = 0;
+                
+                commissionData.forEach(row => {
+                    const fundName = row[fundNameCol];
+                    const fundCode = fundCodeCol ? row[fundCodeCol] : '';
+                    const salesAgent = row[salesAgentCol];
+                    const commissionAmount = parseFloat(row[commissionAmountCol]) || 0;
+                    
+                    if (!fundName || !salesAgent) return;
+                    
+                    const matchResult = findMatchingProduct(String(fundName).trim(), String(fundCode).trim());
+                    
+                    totalAmount += commissionAmount;
+                    if (matchResult.status !== '未匹配') {
+                        matchedCount++;
+                    }
+                    
+                    processedData.push({
+                        '销售商': String(salesAgent).trim(),
+                        '公司产品名称': matchResult.name,
+                        '产品代码': matchResult.code,
+                        '尾佣金额': commissionAmount
+                    });
+                });
+                
+                // 按销售商分组
+                const salesAgents = [...new Set(processedData.map(row => row['销售商']))];
+                
+                // 生成文件
+                const files = [];
+                
+                // 为每个销售商生成文件
+                salesAgents.forEach(agent => {
+                    // 筛选当前销售商的数据
+                    const agentData = matchingResults.filter(row => row['销售商'] === agent);
+                    
+                    // 准备导出数据
+            const exportData = [
+                ['原始基金名称', '原始基金代码', '匹配的产品名称', '产品代码', '匹配方式', '尾佣金额']
+            ];
+            
+            // 填充数据
+            agentData.forEach(row => {
+                exportData.push([
+                    row['原始基金名称'],
+                    row['原始基金代码'],
+                    row['匹配的产品名称'],
+                    row['产品代码'],
+                    row['匹配方式'],
+                    row['尾佣金额']
+                ]);
+            });
+                    
+                    // 创建工作簿
+                    const workbook = XLSX.utils.book_new();
+                    const worksheet = XLSX.utils.aoa_to_sheet(exportData);
+                    XLSX.utils.book_append_sheet(workbook, worksheet, '匹配状态详情');
+                    
+                    // 生成文件
+                    const fileName = agent + '_尾佣付款单.xlsx';
+                    const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+                    const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                    const url = URL.createObjectURL(blob);
+                    
+                    files.push({ name: fileName, url: url });
+                });
+                
+                // 显示结果
+                showResult(processedData, files, commissionData.length, matchedCount, salesAgents.length, totalAmount, matchingResults);
+                showSuccess(`处理完成！匹配成功率：${((matchedCount / commissionData.length) * 100).toFixed(1)}%`);
+            } catch (error) {
+                showError('处理数据时出错：' + error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+        
+        // 保存历史记录
+        function saveHistory(processedData, totalCount, matchedCount, salesAgentsCount, totalAmount) {
+            const history = JSON.parse(localStorage.getItem('fundCommissionHistory') || '[]');
+            
+            const historyItem = {
+                id: Date.now(),
+                timestamp: new Date().toLocaleString(),
+                totalCount,
+                matchedCount,
+                salesAgentsCount,
+                totalAmount: totalAmount.toFixed(2),
+                successRate: ((matchedCount / totalCount) * 100).toFixed(1)
+            };
+            
+            // 限制历史记录数量为10条
+            history.unshift(historyItem);
+            if (history.length > 10) {
+                history.pop();
+            }
+            
+            localStorage.setItem('fundCommissionHistory', JSON.stringify(history));
+        }
+        
+        // 加载历史记录
+        function loadHistory() {
+            const history = JSON.parse(localStorage.getItem('fundCommissionHistory') || '[]');
+            const historyList = document.getElementById('history-list');
+            
+            if (history.length === 0) {
+                historyList.innerHTML = '<p class="text-gray-500">暂无历史记录</p>';
+                return;
+            }
+            
+            let html = '<table class="min-w-full divide-y divide-gray-200">';
+            html += '<thead class="bg-gray-100"><tr>';
+            html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">时间</th>';
+            html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总记录数</th>';
+            html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">匹配成功</th>';
+            html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">匹配失败</th>';
+            html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">销售商数量</th>';
+            html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">总尾佣金额</th>';
+            html += '<th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">匹配成功率</th>';
+            html += '</tr></thead><tbody class="bg-white divide-y divide-gray-200">';
+            
+            history.forEach(item => {
+                html += '<tr>';
+                html += `<td class="px-4 py-2 text-sm">${item.timestamp}</td>`;
+                html += `<td class="px-4 py-2 text-sm">${item.totalCount}</td>`;
+                html += `<td class="px-4 py-2 text-sm">${item.matchedCount}</td>`;
+                html += `<td class="px-4 py-2 text-sm">${item.totalCount - item.matchedCount}</td>`;
+                html += `<td class="px-4 py-2 text-sm">${item.salesAgentsCount}</td>`;
+                html += `<td class="px-4 py-2 text-sm">${item.totalAmount} 元</td>`;
+                html += `<td class="px-4 py-2 text-sm">${item.successRate}%</td>`;
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            historyList.innerHTML = html;
+        }
+        
+        // 显示结果
+        function showResult(processedData, files, totalCount, matchedCount, salesAgentsCount, totalAmount, matchingResults) {
+            const resultDiv = document.getElementById('result');
+            const resultContent = document.getElementById('result-content');
+            
+            let html = `
+                <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                    <p class="text-gray-700">总记录数：${totalCount}</p>
+                    <p class="text-gray-700">匹配成功：${matchedCount}</p>
+                    <p class="text-gray-700">匹配失败：${totalCount - matchedCount}</p>
+                    <p class="text-gray-700">销售商数量：${salesAgentsCount}</p>
+                    <p class="text-gray-700">总尾佣金额：${totalAmount.toFixed(2)} 元</p>
+                </div>
+                
+                <h3 class="text-lg font-medium mb-2">生成的文件</h3>
+                <div class="space-y-2">
+            `;
+            
+            files.forEach(file => {
+                html += `<a href="${file.url}" download="${file.name}" class="block bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors">下载 ${file.name}</a>`;
+            });
+            
+            html += '</div>';
+            
+            resultContent.innerHTML = html;
+            resultDiv.classList.remove('hidden');
+            
+            // 保存历史记录
+            saveHistory(processedData, totalCount, matchedCount, salesAgentsCount, totalAmount);
+        }
+        
+        // 显示加载中
+        function showLoading() {
+            document.getElementById('loading').classList.remove('hidden');
+        }
+        
+        // 隐藏加载中
+        function hideLoading() {
+            document.getElementById('loading').classList.add('hidden');
+        }
+        
+        // 显示成功消息
+        function showSuccess(message) {
+            alert(message);
+        }
+        
+        // 显示错误消息
+        function showError(message) {
+            alert(message);
+        }
+        
+        // 事件监听
+        document.getElementById('product-codes').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    productData = XLSX.utils.sheet_to_json(worksheet);
+                    console.log('产品代码数据加载完成，共 ' + productData.length + ' 条记录');
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+        
+        document.getElementById('commission-data').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, { type: 'array' });
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    commissionData = XLSX.utils.sheet_to_json(worksheet);
+                    console.log('尾佣数据加载完成，共 ' + commissionData.length + ' 条记录');
+                };
+                reader.readAsArrayBuffer(file);
+            }
+        });
+        
+        document.getElementById('add-rule').addEventListener('click', function() {
+            const keyword = document.getElementById('rule-keyword').value.trim();
+            const productName = document.getElementById('rule-product-name').value.trim();
+            const productCode = document.getElementById('rule-product-code').value.trim();
+            
+            if (keyword && productName && productCode) {
+                customMatchRules.push({ keyword, productName, productCode });
+                updateRulesList();
+                
+                // 清空输入框
+                document.getElementById('rule-keyword').value = '';
+                document.getElementById('rule-product-name').value = '';
+                document.getElementById('rule-product-code').value = '';
+            } else {
+                alert('请填写完整的规则信息');
+            }
+        });
+        
+        function updateRulesList() {
+            const rulesList = document.getElementById('rules-list');
+            let html = '';
+            
+            if (customMatchRules.length === 0) {
+                html = '<p class="text-gray-500">暂无自定义规则</p>';
+            } else {
+                customMatchRules.forEach((rule, index) => {
+                    html += `<div class="flex justify-between items-center p-2 border-b last:border-b-0">
+                        <div>
+                            <span class="font-medium">${rule.keyword}</span> → <span>${rule.productName} (${rule.productCode})</span>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button class="text-blue-600 hover:text-blue-800" onclick="editRule(${index})">编辑</button>
+                            <button class="text-red-600 hover:text-red-800" onclick="removeRule(${index})">删除</button>
+                        </div>
+                    </div>`;
+                });
+            }
+            
+            rulesList.innerHTML = html;
+        }
+        
+        window.removeRule = function(index) {
+            customMatchRules.splice(index, 1);
+            updateRulesList();
+        };
+        
+        window.editRule = function(index) {
+            const rule = customMatchRules[index];
+            
+            // 弹出编辑对话框
+            const keyword = prompt('请输入尾佣基金名称关键词:', rule.keyword);
+            if (keyword === null) return;
+            
+            const productName = prompt('请输入公司产品名称:', rule.productName);
+            if (productName === null) return;
+            
+            const productCode = prompt('请输入产品代码:', rule.productCode);
+            if (productCode === null) return;
+            
+            // 更新规则
+            customMatchRules[index] = { keyword: keyword.trim(), productName: productName.trim(), productCode: productCode.trim() };
+            updateRulesList();
+        };
+        
+        document.getElementById('preview-data').addEventListener('click', showDataPreview);
+        document.getElementById('process-data').addEventListener('click', processData);
+        document.getElementById('load-history').addEventListener('click', loadHistory);
+        
+        // 初始化规则列表
+        updateRulesList();
+        
+        // 页面加载时自动加载历史记录
+        loadHistory();
+    </script>
+</body>
+</html>
